@@ -10,21 +10,13 @@ app_license = "MIT"
 
 # Register tools with Frappe Assistant Core
 assistant_tools = [
-	# "redmine_mcp_tools.assistant_tools.mcp_custom_tools.SimpleGreetingTool",
-	"redmine_mcp_tools.assistant_tools.mcp_custom_tools.RedmineTool",
-	"redmine_mcp_tools.assistant_tools.mcp_custom_tools.RedmineIssueReporterTool",
-	# Add more tools here as you create them
+	"redmine_mcp_tools.assistant_tools.mcp_custom_tools.RedmineIssueTool",
+	"redmine_mcp_tools.assistant_tools.mcp_custom_tools.RedmineDashboardTool",
 ]
 
 # Optional: Tool-specific configuration overrides
 assistant_tool_configs = {
-	"simple_greeting": {
-		"greeting_style": "friendly",  
-		"include_time": True,
-		"max_name_length": 100,  
-		"default_language": "en"
-	},
-    "redmine": {
+    "redmine_issue_tool": {
 		"api_url": "https://redmine.promantia.in",
 		"api_key": "817ac36e7e9315d404965b34df7175a7344e506f",
 		"user_email": "sayeesh.naik@promantia.com",
@@ -35,7 +27,7 @@ assistant_tool_configs = {
 		"connect_timeout": 10,
 		"debug": True
 	},
-	"redmine_issue_reporter": {
+    "redmine_dashboard_tool": {
 		"api_url": "https://redmine.promantia.in",
 		"api_key": "817ac36e7e9315d404965b34df7175a7344e506f",
 		"user_email": "sayeesh.naik@promantia.com",
