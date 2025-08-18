@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTPT Implementation - Redmine Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 255, 255, 0.03) 10px,
+                rgba(255, 255, 255, 0.03) 20px
+            );
+            animation: shimmer 20s linear infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%); }
+            100% { transform: translateX(100%) translateY(100%); }
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #3498db, #2c3e50);
+            transition: left 0.3s ease;
+        }
+        
+        .stat-card:hover::before {
+            left: 0;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+        }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 1rem;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #e74c3c, #f39c12, #f1c40f, #2ecc71, #3498db, #9b59b6);
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .issues-table {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-top: 20px;
+            display: contents;
+        }
+        
+        .table-header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .issues-grid {
+            display: grid;
+            grid-template-columns: 80px 150px 1fr 120px 100px 120px 100px;
+            gap: 1px;
+            background: #ecf0f1;
+        }
+        
+        .issues-header {
+            background: #34495e;
+            color: white;
+            padding: 15px 10px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        
+        .issue-cell {
+            background: white;
+            padding: 12px 10px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .issue-id {
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-new { background: #e3f2fd; color: #1976d2; }
+        .status-progress { background: #fff3e0; color: #f57c00; }
+        .status-uat { background: #e8f5e8; color: #388e3c; }
+        .status-production { background: #f3e5f5; color: #7b1fa2; }
+        
+        .priority-high { color: #e74c3c; font-weight: bold; }
+        .priority-normal { color: #2c3e50; }
+        
+        .tracker-badge {
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        
+        .tracker-bug { background: #ffebee; color: #c62828; }
+        .tracker-enhancement { background: #e8f5e8; color: #2e7d32; }
+        .tracker-customization { background: #e3f2fd; color: #1565c0; }
+        .tracker-task { background: #fff3e0; color: #ef6c00; }
+        .tracker-analysis { background: #f3e5f5; color: #6a1b9a; }
+        .tracker-management { background: #fce4ec; color: #ad1457; }
+        
+        .project-info {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .project-info h3 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NTPT Implementation Dashboard</h1>
+            <p>Real-time project metrics and issue tracking</p>
+        </div>
+        
+        <div class="project-info">
+            <h3>Project Details</h3>
+            <p><strong>Project ID:</strong> 278</p>
+            <p><strong>Identifier:</strong> north-thin-ply-technology-sarl</p>
+            <p><strong>ERPNext Project ID:</strong> PROJ-0027</p>
+            <p><strong>Created:</strong> August 22, 2023</p>
+            <p><strong>Last Updated:</strong> November 14, 2023</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number" id="totalIssues">153</span>
+                <span class="stat-label">Total Issues</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="openIssues">24</span>
+                <span class="stat-label">Open Issues</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="inProgress">3</span>
+                <span class="stat-label">In Progress</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="deployedUAT">8</span>
+                <span class="stat-label">Deployed to UAT</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="totalHours">334.5</span>
+                <span class="stat-label">Total Hours Spent</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="chart-container">
+                <div class="chart-title">Issue Status Distribution</div>
+                <canvas id="statusChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Issues by Tracker Type</div>
+                <canvas id="trackerChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Issues by Priority</div>
+                <canvas id="priorityChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Hours Spent by Issue Category</div>
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="issues-table">
+            <div class="table-header">Recent Issues (Last 25)</div>
+            <div class="issues-grid">
+                <div class="issues-header">ID</div>
+                <div class="issues-header">Tracker</div>
+                <div class="issues-header">Subject</div>
+                <div class="issues-header">Status</div>
+                <div class="issues-header">Priority</div>
+                <div class="issues-header">Assignee</div>
+                <div class="issues-header">Hours</div>
+                
+                <!-- Issues will be populated by JavaScript -->
+                <div id="issuesData" style="display: contents;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Issue data from the API response
+        const issuesData = [
+            {id: 27241, tracker: 'Enhancement', subject: 'Error message modification in Material transfer entry', status: 'New', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 0.0},
+            {id: 27220, tracker: 'Customization', subject: 'Return feature for Buying & Selling', status: 'New', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 0.0},
+            {id: 27211, tracker: 'Enhancement', subject: 'Pop-up changes (Assign Entities & Assign Material)', status: 'In Progress', priority: 'High', assignee: 'Sayeesh Manjunath Naik', spent_hours: 7.0},
+            {id: 27191, tracker: 'Bug', subject: 'Batch and scan entities fixes', status: 'New', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 3.5},
+            {id: 27186, tracker: 'Enhancement', subject: 'Classify shipping & Tax rule based on source of order and order type', status: 'New', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 6.25},
+            {id: 27156, tracker: 'Bug', subject: 'PR target location and batch issue', status: 'In Progress', priority: 'Normal', assignee: 'Prasanth Kumar J', spent_hours: 2.75},
+            {id: 27155, tracker: 'Enhancement', subject: 'Sales order workflow changes', status: 'New', priority: 'Normal', assignee: 'Prasanth Kumar J', spent_hours: 0.0},
+            {id: 27153, tracker: 'Analysis', subject: 'FIFO Queue Logic and change in stock value', status: 'New', priority: 'Normal', assignee: 'Prasanth Kumar J', spent_hours: 1.25},
+            {id: 27134, tracker: 'Task', subject: 'Prepreg Regression testing', status: 'New', priority: 'Normal', assignee: 'Avadram Mohanram Sutar', spent_hours: 9.0},
+            {id: 27131, tracker: 'Bug', subject: 'Bundle issue & Error logs', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Prasanth Kumar J', spent_hours: 25.5},
+            {id: 27104, tracker: 'Task', subject: 'Paypal wrong link generated', status: 'New', priority: 'Normal', assignee: 'Prasanth Kumar J', spent_hours: 8.0},
+            {id: 27094, tracker: 'Bug', subject: 'Manufacturing Fixes', status: 'In Progress', priority: 'High', assignee: 'Sagarika Mohan Naik', spent_hours: 11.5},
+            {id: 27062, tracker: 'Enhancement', subject: 'Warehouse updation based on batch- SE', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 11.75},
+            {id: 27030, tracker: 'Management', subject: 'Workshop (August)', status: 'New', priority: 'Normal', assignee: 'Shyamala Babu C S', spent_hours: 53.5},
+            {id: 27029, tracker: 'Management', subject: 'Project Management (August)', status: 'New', priority: 'Normal', assignee: 'Shyamala Babu C S', spent_hours: 13.0},
+            {id: 27019, tracker: 'Customization', subject: 'Weight calculation in PZ and storing in entity', status: 'New', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 12.75},
+            {id: 27005, tracker: 'Enhancement', subject: 'CHF value from api', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Satishkumar L', spent_hours: 22.0},
+            {id: 26988, tracker: 'Enhancement', subject: 'Auto-update Batch Quantity', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 5.75},
+            {id: 26942, tracker: 'Enhancement', subject: 'Prevent WooCommerce Payment Pending Orders from Syncing', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Prasanth Kumar J', spent_hours: 6.5},
+            {id: 26925, tracker: 'Enhancement', subject: 'Entity Doctype Status Filter & Homogeneity Handling', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Sagarika Mohan Naik', spent_hours: 11.75},
+            {id: 26912, tracker: 'Enhancement', subject: 'Sales order link for SE', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Satishkumar L', spent_hours: 3.75},
+            {id: 26897, tracker: 'Enhancement', subject: 'Quotation classification filter for ntpt.tpt', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Satishkumar L', spent_hours: 1.0},
+            {id: 26896, tracker: 'Enhancement', subject: 'Auto-Populate and Edit Tax Cost & Currency in Sales Order Lines', status: 'Deployed to Production', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 17.25},
+            {id: 26871, tracker: 'Enhancement', subject: 'Supplier and address document', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Sayeesh Manjunath Naik', spent_hours: 4.75},
+            {id: 26816, tracker: 'Enhancement', subject: 'SE Filter improvements', status: 'Deployed to UAT', priority: 'Normal', assignee: 'Prasanth Kumar J', spent_hours: 10.75}
+        ];
+
+        // Populate issues table
+        function populateIssuesTable() {
+            const container = document.getElementById('issuesData');
+            let html = '';
+            
+            issuesData.forEach(issue => {
+                const statusClass = issue.status.toLowerCase().replace(' ', '-').replace('to', '').trim();
+                const priorityClass = issue.priority.toLowerCase();
+                const trackerClass = issue.tracker.toLowerCase();
+                
+                html += `
+                    <div class="issue-cell issue-id">#${issue.id}</div>
+                    <div class="issue-cell">
+                        <span class="tracker-badge tracker-${trackerClass}">${issue.tracker}</span>
+                    </div>
+                    <div class="issue-cell" style="text-align: left; justify-content: flex-start;">${issue.subject}</div>
+                    <div class="issue-cell">
+                        <span class="status-badge status-${statusClass}">${issue.status}</span>
+                    </div>
+                    <div class="issue-cell priority-${priorityClass}">${issue.priority}</div>
+                    <div class="issue-cell">${issue.assignee.split(' ')[0]}</div>
+                    <div class="issue-cell">${issue.spent_hours}h</div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // Create charts
+        function createCharts() {
+            // Status distribution
+            const statusCounts = {};
+            issuesData.forEach(issue => {
+                statusCounts[issue.status] = (statusCounts[issue.status] || 0) + 1;
+            });
+
+            new Chart(document.getElementById('statusChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(statusCounts),
+                    datasets: [{
+                        data: Object.values(statusCounts),
+                        backgroundColor: ['#3498db', '#f39c12', '#2ecc71', '#9b59b6', '#e74c3c'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Tracker distribution
+            const trackerCounts = {};
+            issuesData.forEach(issue => {
+                trackerCounts[issue.tracker] = (trackerCounts[issue.tracker] || 0) + 1;
+            });
+
+            new Chart(document.getElementById('trackerChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(trackerCounts),
+                    datasets: [{
+                        data: Object.values(trackerCounts),
+                        backgroundColor: '#3498db',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Priority distribution
+            const priorityCounts = {};
+            issuesData.forEach(issue => {
+                priorityCounts[issue.priority] = (priorityCounts[issue.priority] || 0) + 1;
+            });
+
+            new Chart(document.getElementById('priorityChart'), {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(priorityCounts),
+                    datasets: [{
+                        data: Object.values(priorityCounts),
+                        backgroundColor: ['#e74c3c', '#2c3e50', '#f1c40f'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Hours by category (simplified)
+            const hoursByTracker = {};
+            issuesData.forEach(issue => {
+                hoursByTracker[issue.tracker] = (hoursByTracker[issue.tracker] || 0) + issue.spent_hours;
+            });
+
+            new Chart(document.getElementById('categoryChart'), {
+                type: 'horizontalBar',
+                data: {
+                    labels: Object.keys(hoursByTracker),
+                    datasets: [{
+                        data: Object.values(hoursByTracker),
+                        backgroundColor: '#2ecc71',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            populateIssuesTable();
+            createCharts();
+        });
+    </script>
+</body>
+</html>
