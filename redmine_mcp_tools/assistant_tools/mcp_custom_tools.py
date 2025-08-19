@@ -17,18 +17,26 @@ import requests
 from datetime import datetime, timedelta
 import json
 from datetime import datetime, timedelta
-import random 
+import random, os
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 # -------------------------
 # Redmine Issue Tool
 # -------------------------
+import os
+import requests
+from typing import Dict, Any, List, Optional
+import frappe
+from frappe import _
+
 class RedmineIssueTool(BaseTool):
     # Credentials / constants
-    API_URL = "https://redmine.promantia.in"
-    API_KEY = "817ac36e7e9315d404965b34df7175a7344e506f"
-    USER_EMAIL = "sayeesh.naik@promantia.com"
-    USER_NAME = "Sayeesh Naik"
+    REDMINE_API_URL = os.getenv("REDMINE_API_URL")
+    REDMINE_API_KEY = os.getenv("REDMINE_API_KEY")
 
     def __init__(self):
         super().__init__()
@@ -36,15 +44,15 @@ class RedmineIssueTool(BaseTool):
         self.display_name = "Redmine Integration Tool"
         self.description = self._get_description()
         self.version = "1.0.0"
-        self.author = "Sayeesh Naik"
-        self.author_email = "sayeesh.naik@promantia.com"
+        self.author =  os.getenv("USER_NAME")
+        self.author_email = os.getenv("USER_EMAIL")
         self.category = "Integration"
         self.source_app = "byot"
         self.dependencies = ["requests"]
         self.requires_permission = None
         self.default_config = {
-            "api_url": self.API_URL,
-            "api_key": self.API_KEY,
+            "api_url": self.REDMINE_API_URL,
+            "api_key": self.REDMINE_API_KEY,
             "timeout": 30
         }
         self.inputSchema = {
@@ -52,13 +60,37 @@ class RedmineIssueTool(BaseTool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["list_projects", "list_issues", "get_issue", "create_issue", "update_issue"]
+                    "enum": [
+                        "list_projects", 
+                        "list_issues", 
+                        "get_issue", 
+                        "create_issue", 
+                        "update_issue",
+                        "search_issues",
+                        "search_projects",
+                        "add_note_to_issue",
+                        "change_issue_status",
+                        "assign_issue",
+                        "get_issue_categories",
+                        "get_issue_priorities",
+                        "get_issue_statuses"
+                    ]
                 },
                 "project_id": {"type": "string"},
+                "project_name": {"type": "string"},
                 "issue_id": {"type": "integer"},
+                "issue_subject": {"type": "string"},
                 "subject": {"type": "string"},
                 "description": {"type": "string"},
-                "updates": {"type": "object"}  # dictionary of fields to update
+                "updates": {"type": "object"},
+                "note": {"type": "string"},
+                "status_id": {"type": "integer"},
+                "assigned_to_id": {"type": "integer"},
+                "priority_id": {"type": "integer"},
+                "category_id": {"type": "integer"},
+                "query": {"type": "string"},
+                "limit": {"type": "integer"},
+                "offset": {"type": "integer"}
             },
             "required": ["action"]
         }
@@ -68,108 +100,261 @@ class RedmineIssueTool(BaseTool):
         It allows users to perform key actions:
         * List Projects: Retrieve all projects accessible via Redmine API
         * List Issues: Get all issues for a specific project or globally
-        * Get Issue Details: Fetch detailed information of a single issue by its ID
+        * Get Issue Details: Fetch detailed information of a single issue by its ID or subject
         * Create Issue: Open a new issue in a selected project
         * Update Issue: Modify existing issues (subject, description, status, custom fields)
+        * Search Issues: Find issues by subject, description, or other criteria
+        * Search Projects: Find projects by name
+        * Add Notes: Add comments/notes to existing issues
+        * Change Status: Update issue status
+        * Assign Issues: Assign issues to users
+        * Get Categories: Retrieve available issue categories
+        * Get Priorities: Retrieve available issue priorities
+        * Get Statuses: Retrieve available issue statuses
+        
+        LLM Interaction Tips:
+        - Users can search for projects/issues by name when they don't know IDs
+        - When creating issues, suggest available categories/priorities from the system
+        - For updates, first search for the issue by subject if ID is not provided
+        - Always provide clear, human-readable responses with relevant details
         """
 
-    def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        api_url = self.API_URL
-        api_key = self.API_KEY
-        timeout = 30
+    def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+        """Generic request method to handle all API calls"""
+        api_url = self.REDMINE_API_URL
+        api_key = self.REDMINE_API_KEY
+        timeout = self.default_config.get("timeout", 30)
         headers = {"X-Redmine-API-Key": api_key, "Content-Type": "application/json"}
-
+        
+        url = f"{api_url}{endpoint}"
+        
         try:
-            action = arguments["action"]
-
-            # -----------------------------
-            # List all Redmine projects
-            # -----------------------------
-            if action == "list_projects":
-                resp = requests.get(f"{api_url}/projects.json", headers=headers, timeout=timeout)
-                resp.raise_for_status()
-                return {"success": True, "result": resp.json()}
-
-            # -----------------------------
-            # List issues for a project or all
-            # -----------------------------
-            elif action == "list_issues":
-                project_id = arguments.get("project_id")
-                url = f"{api_url}/issues.json"
-                if project_id:
-                    url += f"?project_id={project_id}"
-                resp = requests.get(url, headers=headers, timeout=timeout)
-                resp.raise_for_status()
-                return {"success": True, "result": resp.json()}
-
-            # -----------------------------
-            # Get details of a single issue
-            # -----------------------------
-            elif action == "get_issue":
-                issue_id = arguments.get("issue_id")
-                if not issue_id:
-                    return {"success": False, "error": "Missing issue_id"}
-                resp = requests.get(f"{api_url}/issues/{issue_id}.json", headers=headers, timeout=timeout)
-                resp.raise_for_status()
-                return {"success": True, "result": resp.json()}
-
-            # -----------------------------
-            # Create a new Redmine issue
-            # -----------------------------
-            elif action == "create_issue":
-                project_id = arguments.get("project_id")
-                subject = arguments.get("subject")
-                description = arguments.get("description", "")
-                if not project_id or not subject:
-                    return {"success": False, "error": "project_id and subject are required"}
-
-                payload = {
-                    "issue": {
-                        "project_id": project_id,
-                        "subject": subject,
-                        "description": description
-                    }
-                }
-                resp = requests.post(f"{api_url}/issues.json", headers=headers, json=payload, timeout=timeout)
-                resp.raise_for_status()
-                return {"success": True, "result": resp.json()}
-
-            # -----------------------------
-            # Update an existing Redmine issue
-            # -----------------------------
-            elif action == "update_issue":
-                issue_id = arguments.get("issue_id")
-                updates = arguments.get("updates", {})
-                if not issue_id:
-                    return {"success": False, "error": "Missing issue_id"}
-                if not updates:
-                    return {"success": False, "error": "No fields to update provided"}
-
-                # Make sure description is fully replaced
-                if "description" in updates:
-                    # Optional: fetch current description if you want to append
-                    resp_current = requests.get(f"{api_url}/issues/{issue_id}.json", headers=headers, timeout=timeout)
-                    resp_current.raise_for_status()
-                    current_desc = resp_current.json()["issue"].get("description", "")
-                    updates["description"] = current_desc + "\n" + updates["description"]
-
-                payload = {"issue": updates}
-                resp = requests.put(f"{api_url}/issues/{issue_id}.json", headers=headers, json=payload, timeout=timeout)
-                resp.raise_for_status()
-                return {"success": True, "result": resp.json()}
-
-
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                timeout=timeout,
+                **kwargs
+            )
+            response.raise_for_status()
+            return {"success": True, "result": response.json()}
+        except requests.exceptions.RequestException as e:
+            frappe.log_error(title=_("Redmine API Request Error"), message=str(e))
+            return {"success": False, "error": str(e)}
         except Exception as e:
             frappe.log_error(title=_("Redmine Tool Error"), message=str(e))
             return {"success": False, "error": str(e)}
+
+    def _search_projects_by_name(self, project_name: str) -> Optional[Dict[str, Any]]:
+        """Search for projects by name and return the first match"""
+        result = self._make_request("GET", f"/projects.json?name={project_name}")
+        if result["success"] and result["result"]["projects"]:
+            return result["result"]["projects"][0]
+        return None
+
+    def _search_issues_by_subject(self, subject: str, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Search for issues by subject"""
+        endpoint = f"/issues.json?subject=~{subject}"
+        if project_id:
+            endpoint += f"&project_id={project_id}"
+            
+        result = self._make_request("GET", endpoint)
+        if result["success"]:
+            return result["result"]["issues"]
+        return []
+
+    def _resolve_project_id(self, project_id: Optional[str] = None, project_name: Optional[str] = None) -> Optional[str]:
+        """Resolve project identifier from either ID or name"""
+        if project_id:
+            return project_id
+        elif project_name:
+            project = self._search_projects_by_name(project_name)
+            return project["id"] if project else None
+        return None
+
+    def _resolve_issue_id(self, issue_id: Optional[int] = None, issue_subject: Optional[str] = None, 
+                         project_id: Optional[str] = None) -> Optional[int]:
+        """Resolve issue identifier from either ID or subject"""
+        if issue_id:
+            return issue_id
+        elif issue_subject:
+            issues = self._search_issues_by_subject(issue_subject, project_id)
+            if issues:
+                return issues[0]["id"]
+        return None
+
+    def list_projects(self, **kwargs) -> Dict[str, Any]:
+        """List all Redmine projects"""
+        return self._make_request("GET", "/projects.json")
+
+    def list_issues(self, project_id: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+        """List issues for a project or all issues"""
+        endpoint = "/issues.json"
+        if project_id:
+            endpoint += f"?project_id={project_id}"
+        return self._make_request("GET", endpoint)
+
+    def get_issue(self, issue_id: Optional[int] = None, issue_subject: Optional[str] = None, 
+                 project_id: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+        """Get details of a single issue by ID or subject"""
+        resolved_issue_id = self._resolve_issue_id(issue_id, issue_subject, project_id)
+        if not resolved_issue_id:
+            return {"success": False, "error": "Could not resolve issue identifier"}
+        
+        return self._make_request("GET", f"/issues/{resolved_issue_id}.json")
+
+    def create_issue(self, project_id: Optional[str] = None, project_name: Optional[str] = None,
+                    subject: str = None, description: str = "", 
+                    priority_id: Optional[int] = None, category_id: Optional[int] = None, **kwargs) -> Dict[str, Any]:
+        """Create a new Redmine issue"""
+        resolved_project_id = self._resolve_project_id(project_id, project_name)
+        if not resolved_project_id:
+            return {"success": False, "error": "Could not resolve project identifier"}
+        if not subject:
+            return {"success": False, "error": "Subject is required"}
+            
+        payload = {
+            "issue": {
+                "project_id": resolved_project_id,
+                "subject": subject,
+                "description": description
+            }
+        }
+        
+        # Add optional fields if provided
+        if priority_id:
+            payload["issue"]["priority_id"] = priority_id
+        if category_id:
+            payload["issue"]["category_id"] = category_id
+            
+        return self._make_request("POST", "/issues.json", json=payload)
+
+    def update_issue(self, issue_id: Optional[int] = None, issue_subject: Optional[str] = None,
+                    project_id: Optional[str] = None, updates: Dict[str, Any] = None, **kwargs) -> Dict[str, Any]:
+        """Update an existing Redmine issue"""
+        resolved_issue_id = self._resolve_issue_id(issue_id, issue_subject, project_id)
+        if not resolved_issue_id:
+            return {"success": False, "error": "Could not resolve issue identifier"}
+        if not updates:
+            return {"success": False, "error": "No fields to update provided"}
+            
+        payload = {"issue": updates}
+        return self._make_request("PUT", f"/issues/{resolved_issue_id}.json", json=payload)
+
+    def add_note_to_issue(self, issue_id: Optional[int] = None, issue_subject: Optional[str] = None,
+                         project_id: Optional[str] = None, note: str = "", **kwargs) -> Dict[str, Any]:
+        """Add a note/comment to an existing issue"""
+        # For notes, we need to append to the existing description
+        if not note:
+            return {"success": False, "error": "Note content is required"}
+            
+        # First get the current issue
+        issue_result = self.get_issue(issue_id, issue_subject, project_id)
+        if not issue_result["success"]:
+            return issue_result
+            
+        current_issue = issue_result["result"]["issue"]
+        current_description = current_issue.get("description", "")
+        new_description = f"{current_description}\n\nNote added: {note}"
+        
+        return self.update_issue(
+            issue_id=issue_id, 
+            issue_subject=issue_subject,
+            project_id=project_id,
+            updates={"description": new_description}
+        )
+
+    def change_issue_status(self, issue_id: Optional[int] = None, issue_subject: Optional[str] = None,
+                           project_id: Optional[str] = None, status_id: int = None, **kwargs) -> Dict[str, Any]:
+        """Change the status of an issue"""
+        if not status_id:
+            return {"success": False, "error": "Status ID is required"}
+            
+        return self.update_issue(
+            issue_id=issue_id,
+            issue_subject=issue_subject,
+            project_id=project_id,
+            updates={"status_id": status_id}
+        )
+
+    def assign_issue(self, issue_id: Optional[int] = None, issue_subject: Optional[str] = None,
+                    project_id: Optional[str] = None, assigned_to_id: int = None, **kwargs) -> Dict[str, Any]:
+        """Assign an issue to a user"""
+        if not assigned_to_id:
+            return {"success": False, "error": "Assigned user ID is required"}
+            
+        return self.update_issue(
+            issue_id=issue_id,
+            issue_subject=issue_subject,
+            project_id=project_id,
+            updates={"assigned_to_id": assigned_to_id}
+        )
+
+    def search_issues(self, query: str, project_id: Optional[str] = None, 
+                     limit: int = 25, offset: int = 0, **kwargs) -> Dict[str, Any]:
+        """Search issues by query string"""
+        endpoint = f"/issues.json?subject=~{query}&description=~{query}&limit={limit}&offset={offset}"
+        if project_id:
+            endpoint += f"&project_id={project_id}"
+            
+        return self._make_request("GET", endpoint)
+
+    def search_projects(self, query: str, limit: int = 25, offset: int = 0, **kwargs) -> Dict[str, Any]:
+        """Search projects by name"""
+        endpoint = f"/projects.json?name=~{query}&limit={limit}&offset={offset}"
+        return self._make_request("GET", endpoint)
+
+    def get_issue_categories(self, project_id: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+        """Get issue categories for a project"""
+        if not project_id:
+            return {"success": False, "error": "Project ID is required"}
+            
+        return self._make_request("GET", f"/projects/{project_id}/issue_categories.json")
+
+    def get_issue_priorities(self, **kwargs) -> Dict[str, Any]:
+        """Get all available issue priorities"""
+        return self._make_request("GET", "/enumerations/issue_priorities.json")
+
+    def get_issue_statuses(self, **kwargs) -> Dict[str, Any]:
+        """Get all available issue statuses"""
+        return self._make_request("GET", "/issue_statuses.json")
+
+    def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        action = arguments["action"]
+        
+        # Map actions to methods
+        action_methods = {
+            "list_projects": self.list_projects,
+            "list_issues": self.list_issues,
+            "get_issue": self.get_issue,
+            "create_issue": self.create_issue,
+            "update_issue": self.update_issue,
+            "search_issues": self.search_issues,
+            "search_projects": self.search_projects,
+            "add_note_to_issue": self.add_note_to_issue,
+            "change_issue_status": self.change_issue_status,
+            "assign_issue": self.assign_issue,
+            "get_issue_categories": self.get_issue_categories,
+            "get_issue_priorities": self.get_issue_priorities,
+            "get_issue_statuses": self.get_issue_statuses
+        }
+        
+        if action not in action_methods:
+            return {"success": False, "error": f"Unknown action: {action}"}
+            
+        # Remove action from arguments before passing to method
+        method_args = arguments.copy()
+        del method_args["action"]
+        
+        return action_methods[action](**method_args)
 
 # -------------------------
 # Redmine Dashboard Tool
 # ------------------------
 class RedmineDashboardTool(BaseTool):
     # Hardcoded credentials
-    API_URL = "https://redmine.promantia.in"
-    API_KEY = "817ac36e7e9315d404965b34df7175a7344e506f"
+    REDMINE_API_URL = os.getenv("REDMINE_API_URL")
+    REDMINE_API_KEY = os.getenv("REDMINE_API_KEY")
 
     def __init__(self):
         super().__init__()
@@ -180,8 +365,8 @@ class RedmineDashboardTool(BaseTool):
         self.dependencies = ["requests"]
         self.requires_permission = None
         self.default_config = {
-            "api_url": self.API_URL,
-            "api_key": self.API_KEY,
+            "api_url": self.REDMINE_API_URL,
+            "api_key": self.REDMINE_API_KEY,
             "timeout": 30
         }
         self.inputSchema = {
@@ -195,7 +380,7 @@ class RedmineDashboardTool(BaseTool):
 
     def _get_project_id(self, project_name: str, headers: dict, timeout: int) -> Optional[int]:
         """Fetch project ID by project name"""
-        resp = requests.get(f"{self.API_URL}/projects.json", headers=headers, timeout=timeout)
+        resp = requests.get(f"{self.REDMINE_API_URL}/projects.json", headers=headers, timeout=timeout)
         resp.raise_for_status()
         projects = resp.json().get("projects", [])
         return next((p["id"] for p in projects if p["name"].lower() == project_name.lower()), None)
@@ -206,7 +391,7 @@ class RedmineDashboardTool(BaseTool):
         offset = 0
         while True:
             resp = requests.get(
-                f"{self.API_URL}/issues.json?project_id={project_id}&limit=100&offset={offset}",
+                f"{self.REDMINE_API_URL}/issues.json?project_id={project_id}&limit=100&offset={offset}",
                 headers=headers,
                 timeout=timeout
             )
@@ -587,7 +772,7 @@ class RedmineDashboardTool(BaseTool):
                 return {"success": False, "error": "project_name is required"}
             
             headers = {
-                "X-Redmine-API-Key": self.API_KEY,
+                "X-Redmine-API-Key": self.REDMINE_API_KEY,
                 "Content-Type": "application/json"
             }
             

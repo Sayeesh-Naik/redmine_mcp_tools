@@ -1,89 +1,85 @@
-````markdown
 # Redmine Integration Tools
 
-![Dashboard Preview](assets/dashboard-screenshot.png)
-
-A Python toolkit for **Redmine project management** with API integration, dashboards, and reporting.
+A complete Python toolkit for Redmine project management with API integration and visual reporting capabilities.
 
 ---
 
 ## 📌 Table of Contents
-- [Features](#features)
-- [Installation](#installation)
-- [Tools](#tools)
-- [RedmineIssueTool](#redminetool)
-- [RedmineDashboardTool](#redmineissuereportertool)
-- [Usage Examples](#usage-examples)
-- [Configuration](#configuration)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+- [Features](#-features)
+- [Installation](#-installation)
+- [Tools Overview](#-tools-overview)
+- [RedmineIssueTool](#1-redmineissuetool)
+- [RedmineDashboardTool](#2-redminedashboardtool)
+- [Usage Examples](#-usage-examples)
+- [Configuration](#-configuration)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
 
 ---
 
 ## ✨ Features
-- 🔗 Real-time Redmine API integration  
-- 📊 Interactive dashboards with charts & tables  
-- 🗂️ Multi-project support  
-- 🎯 Priority & status tracking with color coding  
-- 📑 Automated reporting (HTML / Docs)  
-- 📖 Technical & functional documentation for Redmine tickets  
+- Real-time Redmine API integration
+- **CRUD operations on issues by Project ID, Project Name, or Ticket Title**
+- Visual dashboards with interactive charts
+- Multi-project support
+- Priority/status tracking with color coding
+- Automated reporting
+- Documentation for both technical and functional workflows
+- **Safe Mode:** Delete operation is disabled (contact tool developer)
 
 ---
 
-## 🛠 Installation
+## 🛠️ Installation
 ```bash
 pip install requests python-dotenv
 ````
 
 ---
 
-## 🔧 Tools
+## 🔧 Tools Overview
 
-### 1. RedmineIssueTool
+### 1. redmineissuetool
 
-Low-level API interface for Redmine operations.
+Core API interface for Redmine operations.
 
 **Available Actions:**
 
 ```python
 actions = [
     "list_projects",
-    "list_issues",
+    "list_issues", 
     "get_issue",
     "create_issue",
-    "update_issue"
+    "update_issue",
+    "delete_issue"  # ⚠️ Blocked — returns warning message
 ]
 ```
 
-**Example – List Projects**
-
-```python
-from redmine_tool import RedmineTool
-
-tool = RedmineTool()
-projects = tool.execute({"action": "list_projects"})
-```
+> **Note**:
+>
+> * You can perform actions based on **Project ID**, **Project Name**, or **Ticket Title**.
+> * **Delete Operation**: Instead of deleting, the tool will respond:
+>   *"For delete functionality contact with Sayeesh, who developed this tool."*
 
 ---
 
-### 2. RedmineDashboardTool
+### 2. RedminedashboardTool
 
-Generates visual dashboards and reports.
+Visual reporting and dashboard generation.
 
 **Color Coding Scheme:**
 
-| Category | Values                | Colors   |
-| -------- | --------------------- | ---------|
-| Priority | High, Normal          | 🔴 🟢    |
-| Status   | New, In Progress, etc | ⚪ 🟡 🔵 |
+| Category | Values                 | Colors    |
+| -------- | ---------------------- | --------- |
+| Priority | High, Normal           | 🔴, 🟢    |
+| Status   | New, In Progress, etc. | ⚪, 🟡, 🔵 |
 
-**Example – Generate Dashboard**
+**Example: Generate Dashboard**
 
 ```python
-from redmine_tool import RedmineIssueReporterTool
-
-reporter = RedmineIssueReporterTool()
-dashboard_html = reporter.execute({
+from redmine_tool import RedminedashboardTool
+reporter = RedminedashboardTool()
+dashboard = reporter.execute({
     "project_name": "NTPT Implementation",
     "filter": "priority=high"
 })
@@ -93,23 +89,25 @@ dashboard_html = reporter.execute({
 
 ## 🚀 Usage Examples
 
-### Create a New Issue
+### Basic Operations
+
+**Create a new issue (by project name):**
 
 ```python
 tool.execute({
     "action": "create_issue",
-    "project_id": 123,
+    "project_name": "ERPNext",
     "subject": "Login page bug",
     "description": "Submit button not working"
 })
 ```
 
-### Update Issue Status
+**Update issue by title:**
 
 ```python
 tool.execute({
     "action": "update_issue",
-    "issue_id": 456,
+    "title": "Login page bug",
     "updates": {
         "status_id": 2,
         "notes": "Fixed in latest commit"
@@ -117,43 +115,59 @@ tool.execute({
 })
 ```
 
-### Generate Project Dashboard
+**⚠️ Attempt delete issue:**
 
+```python
+tool.execute({
+    "action": "delete_issue",
+    "issue_id": 789
+})
 ```
-LLM Example Prompt: Generate redmine dashboard for project name "<your_redmine_project_name>"
-
-```
-
 ---
 
 ## ⚙️ Configuration
 
-Create a `.env` file in your project root:
+Create `.env` file in project root:
 
 ```ini
 REDMINE_API_URL=https://redmine.example.com
-REDMINE_API_KEY=your_api_key_here
+REDMINE_API_KEY=<your_api_key_here>
 TIMEOUT=30
 ```
+
+* `REDMINE_API_URL`: Your Redmine server endpoint
+* `REDMINE_API_KEY`: Personal API key from Redmine
+* `TIMEOUT`: Request timeout in seconds (default: 30)
 
 ---
 
 ## 🐛 Troubleshooting
 
-**1. Authentication Errors**
+**Common Issues:**
 
-* Ensure correct API key in `.env`
-* Verify permissions in Redmine
+1. **Authentication Errors**
 
-**2. Data Not Loading**
+   * Verify API key in `.env`
+   * Check API key permissions
 
-* Check network connectivity
-* Confirm project ID exists
+2. **Data Not Loading**
+
+   * Confirm network connectivity
+   * Validate project exists
+
+3. **Delete Attempts**
+
+   * Tool intentionally blocks delete operation
+   * Message: *"For delete functionality contact with Sayeesh, who developed this tool."*
 
 ---
 
-## 🤝 Contributing
+## 👨‍💻 Developer Contact
 
-* ✅ Add unit tests for new features
-* 📖 Update documentation where needed
-* 📝 Use type hints for all methods
+For enhancements, bug fixes, or **delete functionality requests**, please contact: \
+**Sayeesh (Redmine Tool Developer)**\
+**Email: sayeesh.naik@promantia.com**
+
+```
+
+---
