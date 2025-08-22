@@ -4,8 +4,6 @@ A complete Python toolkit for Redmine project management with API integration an
 
 ---
 
-# Redmine Integration Tools
-
 | Tools                   | Purpose              |
 |-------------------------|----------------------|
 | Redmine Issue Tool      | CRUD Operations      |
