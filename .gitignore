@@ -1,7 +1,17 @@
+# macOS system files
 .DS_Store
+
+# Python
 *.pyc
 *.egg-info
+__pycache__/
+
+# Vim / temp files
 *.swp
 tags
-node_modules
-__pycache__
+
+# Node.js
+node_modules/
+
+# Environment variables
+.env

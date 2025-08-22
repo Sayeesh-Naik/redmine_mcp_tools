@@ -4,6 +4,15 @@ A complete Python toolkit for Redmine project management with API integration an
 
 ---
 
+# Redmine Integration Tools
+
+| Tools                   | Purpose              |
+|-------------------------|----------------------|
+| Redmine Issue Tool      | CRUD Operations      |
+| Redmine Dashboard Tool  | Report Visualization |
+
+---
+
 ## 📌 Table of Contents
 - [Features](#-features)
 - [Installation](#-installation)
@@ -50,7 +59,6 @@ actions = [
     "get_issue",
     "create_issue",
     "update_issue",
-    "delete_issue"  # ⚠️ Blocked — returns warning message
 ]
 ```
 
