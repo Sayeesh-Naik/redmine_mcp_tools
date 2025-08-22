@@ -25,13 +25,12 @@ A complete Python toolkit for Redmine project management with API integration an
 - Priority/status tracking with color coding
 - Automated reporting
 - Documentation for both technical and functional workflows
-- **Safe Mode:** Delete operation is disabled (contact tool developer)
 
 ---
 
 ## 🛠️ Installation
 ```bash
-pip install requests python-dotenv
+pip install -r requirements.txt
 ````
 
 ---
@@ -155,16 +154,16 @@ TIMEOUT=30
    * Confirm network connectivity
    * Validate project exists
 
-3. **Delete Attempts**
+3. **No Module Found**
 
-   * Tool intentionally blocks delete operation
-   * Message: *"For delete functionality contact with Sayeesh, who developed this tool."*
+   * Make sure all required libraries installed. (requirements.txt)
 
 ---
 
 ## 👨‍💻 Developer Contact
 
-For enhancements, bug fixes, or **delete functionality requests**, please contact: \
+For enhancements, bug fixes, or **delete functionality requests**,\ 
+please contact: \
 **Sayeesh (Redmine Tool Developer)**\
 **Email: sayeesh.naik@promantia.com**
 

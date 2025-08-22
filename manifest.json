@@ -1,0 +1,59 @@
+{
+  "dxt_version": "0.1",
+  "name": "redmine-mcp-tools",
+  "display_name": "Redmine MCP Tools",
+  "version": "0.1.0",
+  "description": "Redmine MCP integration tools for Claude Desktop (GitHub Copilot)",
+  "long_description": "This extension connects Claude Desktop to your Redmine MCP Tools running on localhost:8000, enabling AI-powered issue and dashboard management.",
+  "author": {
+    "name": "Sayeesh Naik",
+    "email": "sayeesh.naik@promantia.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/redmine_mcp_tools"
+  },
+  "homepage": "https://github.com/your-org/redmine_mcp_tools",
+  "support": "https://github.com/your-org/redmine_mcp_tools/issues",
+  "icon": "icon.png",
+  "keywords": [
+    "redmine",
+    "mcp",
+    "tools",
+    "ai",
+    "github-copilot"
+  ],
+  "license": "MIT",
+  "server": {
+    "type": "python",
+    "entry_point": "server/frappe_assistant_stdio_bridge.py",
+    "mcp_config": {
+      "command": "python3",
+      "args": [
+        "${__dirname}/server/frappe_assistant_stdio_bridge.py"
+      ],
+      "env": {
+        "FRAPPE_SERVER_URL": "http://localhost:8000"
+      }
+    }
+  },
+  "user_config": {},
+  "tools": [
+    {
+      "name": "RedmineIssueTool",
+      "description": "Manage Redmine issues via MCP integration."
+    },
+    {
+      "name": "RedmineDashboardTool",
+      "description": "Access and manage Redmine dashboards via MCP integration."
+    }
+  ],
+  "tools_generated": true,
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
+  }
+}
